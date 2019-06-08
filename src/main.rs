@@ -97,7 +97,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
 
     let mut event_loop = EventsLoop::new();
 
-    let window = WindowBuilder::new().with_dimensions(LogicalSize { width: 1280., height: 800. }).with_title("Nuklear Rust VKI Demo").build(&event_loop).unwrap();
+    let window = WindowBuilder::new().with_dimensions(LogicalSize { width: 1024., height: 768. }).with_title("Nuklear Rust VKI Demo").build(&event_loop).unwrap();
 
     let surface_descriptor = vki::winit_surface_descriptor!(&window);
 
@@ -129,7 +129,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
 
     let mut drawer = Drawer::new(
         &mut device,
-        vki::Color { r: 1., g: 0.5, b: 0.1, a: 1. },
+        vki::Color { r: 1., g: 0.2, b: 0.1, a: 1. },
         36,
         MAX_VERTEX_MEMORY,
         MAX_ELEMENT_MEMORY,
