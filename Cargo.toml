@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 nuklear-rust = {version = "~0.6", features = ["rust_allocator"]}
-nuklear-backend-vki = { version = "~0.1", path = "../nuklear-backend-vki" }
+nuklear-backend-vki = { version = "~0.1", git = "https://github.com/aloucks/nuklear-backend-vki.git", rev = "8fb35e9" }
 image = "~0.21"
 winit = "0.19.1"
 vki = { version = "0.1", default-features = false, git = "https://github.com/aloucks/vki.git", rev = "ccd2a0e" }
