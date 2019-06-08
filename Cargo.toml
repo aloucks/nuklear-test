@@ -1,15 +1,19 @@
 [package]
-name = "nuklear-sample-extended"
+name = "nuklear-test-vki"
 version = "0.1.0"
 authors = ["snuk182 <snuk188@gmail.com>"]
 edition = "2018"
 
 [dependencies]
 nuklear-rust = {version = "~0.6", features = ["rust_allocator"]}
-nuklear-backend-wgpurs = {version = "~0.1", features = ["vulkan"]}
-wgpu = "~0.2"
+nuklear-backend-vki = { version = "~0.1", path = "../nuklear-backend-vki" }
 image = "~0.21"
+winit = "0.19.1"
+vki = { version = "0.1", default-features = false, git = "https://github.com/aloucks/vki.git", rev = "ccd2a0e" }
 
 [[bin]]
-name = "t"
+name = "nuklear-test-vki"
 path = "src/main.rs"
+
+[patch.crates-io]
+ash = { git = "https://github.com/MaikKlein/ash.git", rev = "6d7e4bf" }

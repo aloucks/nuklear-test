@@ -1,7 +1,7 @@
 use nuklear::*;
-use nuklear_backend_wgpurs::Drawer;
+use nuklear_backend_vki::{Drawer};
 
-use wgpu::winit::{
+use winit::{
     dpi::{LogicalPosition, LogicalSize},
     ElementState, Event, EventsLoop, KeyboardInput, MouseButton as WinitMouseButton, MouseScrollDelta, VirtualKeyCode, WindowBuilder, WindowEvent,
 };
@@ -79,43 +79,45 @@ impl Drop for Media {
     }
 }
 
-fn icon_load(device: &mut wgpu::Device, drawer: &mut Drawer, filename: &str) -> Image {
+fn icon_load(device: &mut vki::Device, drawer: &mut Drawer, filename: &str) -> Image {
     let img = image::load(BufReader::new(File::open(filename).unwrap()), image::PNG).unwrap().to_bgra();
 
     let (w, h) = img.dimensions();
-    let mut hnd = drawer.add_texture(device, &img, w, h);
+    let mut hnd = drawer.add_texture(device, &img, w, h).unwrap();
 
     Image::with_id(hnd.id().unwrap())
 }
 
-fn main() {
-    let instance = wgpu::Instance::new();
+fn main() -> Result<(), Box<dyn std::error::Error>>{
+    let instance = vki::Instance::new()?;
 
-    let adapter = instance.get_adapter(&wgpu::AdapterDescriptor {
-        power_preference: wgpu::PowerPreference::HighPerformance,
-    });
-
-    let mut device = adapter.create_device(&wgpu::DeviceDescriptor {
-        extensions: wgpu::Extensions { anisotropic_filtering: false },
-    });
+    let adapter = instance.get_adapter(vki::AdapterOptions {
+        power_preference: vki::PowerPreference::HighPerformance,
+    })?;
 
     let mut event_loop = EventsLoop::new();
 
-    let window = WindowBuilder::new().with_dimensions(LogicalSize { width: 1280., height: 800. }).with_title("Nuklear Rust Wgpu-rs Demo").build(&event_loop).unwrap();
+    let window = WindowBuilder::new().with_dimensions(LogicalSize { width: 1280., height: 800. }).with_title("Nuklear Rust VKI Demo").build(&event_loop).unwrap();
 
-    let surface = instance.create_surface(&window);
+    let surface_descriptor = vki::winit_surface_descriptor!(&window);
+
+    let surface = instance.create_surface(&surface_descriptor)?;
+
+    let mut device = adapter.create_device(vki::DeviceDescriptor {
+        extensions: vki::Extensions { anisotropic_filtering: false },
+        surface_support: Some(&surface),
+    })?;
 
     let mut dpi_factor = window.get_hidpi_factor();
     let mut size = window.get_inner_size().unwrap().to_physical(dpi_factor);
 
-    let mut descriptor = wgpu::SwapChainDescriptor {
-        usage: wgpu::TextureUsageFlags::OUTPUT_ATTACHMENT,
-        format: nuklear_backend_wgpurs::TEXTURE_FORMAT,
-        width: size.width as u32,
-        height: size.height as u32,
+    let mut descriptor = vki::SwapchainDescriptor {
+        usage: vki::TextureUsageFlags::OUTPUT_ATTACHMENT,
+        format: nuklear_backend_vki::TEXTURE_FORMAT,
+        surface: &surface,
     };
 
-    let mut swapchain = device.create_swap_chain(&surface, &descriptor);
+    let mut swapchain = device.create_swapchain(descriptor, None)?;
 
     let mut cfg = FontConfig::with_size(0.0);
     cfg.set_oversample_h(3);
@@ -127,12 +129,12 @@ fn main() {
 
     let mut drawer = Drawer::new(
         &mut device,
-        wgpu::Color { r: 1., g: 0.5, b: 0.1, a: 1. },
+        vki::Color { r: 1., g: 0.5, b: 0.1, a: 1. },
         36,
         MAX_VERTEX_MEMORY,
         MAX_ELEMENT_MEMORY,
         Buffer::with_size(&mut allo, MAX_COMMANDS_MEMORY),
-    );
+    )?;
 
     let mut atlas = FontAtlas::new(&mut allo);
 
@@ -154,7 +156,7 @@ fn main() {
 
     let font_tex = {
         let (b, w, h) = atlas.bake(FontAtlasFormat::Rgba32);
-        drawer.add_texture(&mut device, b, w, h)
+        drawer.add_texture(&mut device, b, w, h)?
     };
 
     let mut null = DrawNullTexture::default();
@@ -302,14 +304,13 @@ fn main() {
                         dpi_factor = window.get_hidpi_factor();
                         size = window.get_inner_size().unwrap().to_physical(dpi_factor);
 
-                        descriptor = wgpu::SwapChainDescriptor {
-                            usage: wgpu::TextureUsageFlags::OUTPUT_ATTACHMENT,
-                            format: nuklear_backend_wgpurs::TEXTURE_FORMAT,
-                            width: size.width as u32,
-                            height: size.height as u32,
+                        descriptor = vki::SwapchainDescriptor {
+                            usage: vki::TextureUsageFlags::OUTPUT_ATTACHMENT,
+                            format: nuklear_backend_vki::TEXTURE_FORMAT,
+                            surface: &surface,
                         };
 
-                        swapchain = device.create_swap_chain(&surface, &descriptor);
+                        swapchain = device.create_swapchain(descriptor, Some(&swapchain)).expect("create_swapchain failed");
                     }
                     _ => (),
                 }
@@ -330,16 +331,37 @@ fn main() {
         button_demo(&mut ctx, &mut media, &mut button_state);
         grid_demo(&mut ctx, &mut media, &mut grid_state);
 
-        let mut encoder: wgpu::CommandEncoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
-		let canvas = swapchain.get_next_texture();
+        let mut encoder: vki::CommandEncoder = device.create_command_encoder()?;
+		let canvas = match swapchain.acquire_next_image() {
+            Ok(canvas) => canvas,
+            Err(vki::SwapchainError::OutOfDate) => {
+                ctx.clear();
+                continue
+            },
+            Err(e) => Err(e)?,
+        };
 		
-        drawer.draw(&mut ctx, &mut config, &mut encoder, &canvas.view, &mut device, fw as u32, fh as u32, scale);
-        device.get_queue().submit(&[encoder.finish()]);
+        drawer.draw(&mut ctx, &mut config, &mut encoder, &canvas.view, &mut device, fw as u32, fh as u32, scale)?;
 
-        ::std::thread::sleep(::std::time::Duration::from_millis(20));
+        let queue = device.get_queue();
+
+        queue.submit(&[encoder.finish()?])?;
+
+        match queue.present(canvas) {
+            Ok(_) => {},
+            Err(vki::SwapchainError::OutOfDate) => {
+                ctx.clear();
+                continue
+            },
+            Err(e) => Err(e)?,
+        }
+
+        ::std::thread::sleep(::std::time::Duration::from_millis(8));
 
         ctx.clear();
     }
+
+    Ok(())
 }
 
 fn ui_header(ctx: &mut Context, media: &mut Media, title: &str) {
