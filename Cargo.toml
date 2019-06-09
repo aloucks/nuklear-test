@@ -5,7 +5,7 @@ authors = ["snuk182 <snuk188@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-nuklear-rust = {version = "~0.6", features = ["rust_allocator"]}
+nuklear-rust = {version = "~0.6" }
 nuklear-backend-vki = { version = "~0.1", git = "https://github.com/aloucks/nuklear-backend-vki.git", rev = "8fb35e9" }
 image = "~0.21"
 winit = "0.19.1"
@@ -17,3 +17,6 @@ path = "src/main.rs"
 
 [patch.crates-io]
 ash = { git = "https://github.com/MaikKlein/ash.git", rev = "6d7e4bf" }
+
+[features]
+rust_allocator = ["nuklear-rust/rust_allocator"]
