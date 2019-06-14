@@ -1,5 +1,5 @@
 use nuklear::*;
-use nuklear_backend_vki::{Drawer};
+use nuklear_backend_vki::{vki, Drawer};
 
 use winit::{
     dpi::{LogicalPosition, LogicalSize},
